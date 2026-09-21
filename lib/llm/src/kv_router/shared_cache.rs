@@ -56,6 +56,8 @@ struct SglangHicacheMooncakeConfig {
     extra_backend_tag: Option<String>,
     #[serde(default)]
     kv_events_endpoint: Option<String>,
+    #[serde(default)]
+    key_prefix: Option<String>,
 }
 
 impl SglangHicacheMooncakeConfig {
@@ -69,6 +71,7 @@ impl SglangHicacheMooncakeConfig {
             && self.tp_lcm_size == other.tp_lcm_size
             && self.should_split_heads == other.should_split_heads
             && self.extra_backend_tag == other.extra_backend_tag
+            && self.key_prefix == other.key_prefix
     }
 }
 
@@ -565,7 +568,11 @@ fn expand_actual_query_keys(
     logical_page_hash: &str,
     config: &SglangHicacheMooncakeConfig,
 ) -> Vec<String> {
-    let logical_key = maybe_prefix_key(logical_page_hash, config.extra_backend_tag.as_deref());
+    let prefix = config
+        .key_prefix
+        .as_deref()
+        .or(config.extra_backend_tag.as_deref());
+    let logical_key = maybe_prefix_key(logical_page_hash, prefix);
     let pp_size = config.pp_size.max(1);
 
     if config.is_mla_model {
@@ -631,6 +638,7 @@ mod tests {
             should_split_heads: false,
             extra_backend_tag: None,
             kv_events_endpoint: Some("tcp://127.0.0.1:5557".to_string()),
+            key_prefix: None,
         }
     }
 
@@ -737,6 +745,24 @@ mod tests {
                 "tag_hash_2_v",
                 "tag_hash_3_k",
                 "tag_hash_3_v",
+            ]
+        );
+    }
+
+    #[test]
+    fn test_expand_actual_query_keys_uses_advertised_key_prefix() {
+        let config = SglangHicacheMooncakeConfig {
+            key_prefix: Some("tag_deepseek-ai-DeepSeek-V4".to_string()),
+            extra_backend_tag: Some("tag".to_string()),
+            ..mooncake_config()
+        };
+
+        let query_keys = expand_actual_query_keys("hash", &config);
+        assert_eq!(
+            query_keys,
+            vec![
+                "tag_deepseek-ai-DeepSeek-V4_hash_0_k",
+                "tag_deepseek-ai-DeepSeek-V4_hash_0_v",
             ]
         );
     }

@@ -324,6 +324,18 @@ def _get_mooncake_runtime_data(server_args: ServerArgs) -> Optional[dict[str, An
     if not isinstance(extra_backend_tag, str) or not extra_backend_tag:
         extra_backend_tag = None
 
+    model_name = getattr(server_args, "served_model_name", None)
+    if not isinstance(model_name, str) or not model_name:
+        model_name = None
+
+    # Mirrors MooncakeStore's config_prefix: backend tag + model name, "/" → "-".
+    key_prefix_parts = []
+    if extra_backend_tag:
+        key_prefix_parts.append(extra_backend_tag)
+    if model_name:
+        key_prefix_parts.append("-".join(model_name.split("/")))
+    key_prefix = "_".join(key_prefix_parts) or None
+
     return {
         "backend": "mooncake",
         "page_size": int(getattr(server_args, "page_size", 1) or 1),
@@ -334,6 +346,7 @@ def _get_mooncake_runtime_data(server_args: ServerArgs) -> Optional[dict[str, An
         "tp_lcm_size": tp_lcm_size,
         "should_split_heads": should_split_heads,
         "extra_backend_tag": extra_backend_tag,
+        "key_prefix": key_prefix,
         "kv_events_endpoint": os.getenv("DYN_MOONCAKE_KV_EVENTS_ENDPOINT") or None,
     }
 

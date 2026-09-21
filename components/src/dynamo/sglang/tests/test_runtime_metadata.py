@@ -36,6 +36,34 @@ def test_kv_event_block_size_accounts_for_dcp(server_args, expected):
     assert kv_event_block_size(server_args) == expected
 
 
+@pytest.mark.parametrize(
+    "served_model_name, extra_config, expected",
+    [
+        ("deepseek-ai/DeepSeek-V4", None, "deepseek-ai-DeepSeek-V4"),
+        (
+            "deepseek-ai/DeepSeek-V4",
+            '{"extra_backend_tag": "tag"}',
+            "tag_deepseek-ai-DeepSeek-V4",
+        ),
+        (None, '{"extra_backend_tag": "tag"}', "tag"),
+        (None, None, None),
+    ],
+)
+def test_mooncake_runtime_data_mirrors_store_key_prefix(
+    served_model_name, extra_config, expected
+):
+    from dynamo.sglang.register import _get_mooncake_runtime_data
+
+    server_args = SimpleNamespace(
+        hicache_storage_backend="mooncake",
+        hicache_storage_backend_extra_config=extra_config,
+        page_size=64,
+        served_model_name=served_model_name,
+    )
+
+    assert _get_mooncake_runtime_data(server_args)["key_prefix"] == expected
+
+
 def test_spec_decode_runtime_data_uses_speculative_num_steps():
     server_args = SimpleNamespace(
         speculative_num_steps="5",
